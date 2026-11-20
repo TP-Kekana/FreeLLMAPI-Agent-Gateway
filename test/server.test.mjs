@@ -6,7 +6,18 @@ process.env.PLANNER_API_KEY = "planner-secret";
 process.env.MANAGER_API_KEY = "manager-secret";
 process.env.UI_API_KEY = "ui-secret";
 
-const { rewriteJsonBody, safeEqual } = await import("../src/server.mjs");
+const { deriveRoleKey, rewriteJsonBody, safeEqual } = await import("../src/server.mjs");
+
+test("role keys are deterministic and isolated by role", () => {
+  assert.equal(
+    deriveRoleKey("shared-root-secret", "worker"),
+    deriveRoleKey("shared-root-secret", "worker"),
+  );
+  assert.notEqual(
+    deriveRoleKey("shared-root-secret", "worker"),
+    deriveRoleKey("shared-root-secret", "planner"),
+  );
+});
 
 test("safeEqual accepts only the exact non-empty key", () => {
   assert.equal(safeEqual("worker-secret", "worker-secret"), true);
