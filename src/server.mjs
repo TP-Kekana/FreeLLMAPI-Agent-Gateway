@@ -1,4 +1,4 @@
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import { Readable } from "node:stream";
 
@@ -7,6 +7,7 @@ const upstreamOrigin = new URL(process.env.FREELLMAPI_ORIGIN || "http://freellma
 const upstreamKey = process.env.FREELLMAPI_UNIFIED_KEY || "";
 const maxBodyBytes = integerEnv("MAX_BODY_BYTES", 20 * 1024 * 1024);
 const requestTimeoutMs = integerEnv("REQUEST_TIMEOUT_MS", 300_000);
+const roleKeyDerivationSecret = process.env.ROLE_KEY_DERIVATION_SECRET || "";
 
 const roles = Object.freeze({
   worker: roleConfig("WORKER", "auto:worker"),
@@ -29,9 +30,16 @@ function integerEnv(name, fallback) {
 
 function roleConfig(prefix, defaultModel) {
   return Object.freeze({
-    key: process.env[`${prefix}_API_KEY`] || "",
+    key: process.env[`${prefix}_API_KEY`] || deriveRoleKey(roleKeyDerivationSecret, prefix.toLowerCase()),
     model: process.env[`${prefix}_MODEL`] || defaultModel,
   });
+}
+
+function deriveRoleKey(secret, role) {
+  if (!secret || !role) return "";
+  return createHmac("sha256", secret)
+    .update(`freellmapi-role:${role}:v1`)
+    .digest("base64url");
 }
 
 function digest(value) {
@@ -254,4 +262,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { server, rewriteJsonBody, safeEqual };
+export { deriveRoleKey, server, rewriteJsonBody, safeEqual };
