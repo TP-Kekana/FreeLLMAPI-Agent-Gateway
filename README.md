@@ -42,6 +42,8 @@ Never commit provider keys, the FreeLLMAPI unified key, role keys, or the encryp
 
 Use `compose.hostinger.yml` as a new Docker Manager application. Keep this stack separate from `nextgen-ai`. The compose file expects secrets in Docker Manager environment variables and routes only the role gateway through the VPS Traefik instance.
 
+`compose.hostinger.external.yml` is the zero-downtime migration variant. It deploys only the role gateway and forwards to an already configured FreeLLMAPI installation. This lets consumers move to isolated role routes before provider credentials are migrated into the new internal core. The stack joins the existing Traefik network and remains separate from every NextGen-AI container and volume.
+
 After the first FreeLLMAPI start, retrieve its generated unified key from the internal core logs or its protected Keys page and set `FREELLMAPI_UNIFIED_KEY`. Then restart the role gateway. Add provider keys through the FreeLLMAPI admin surface from a private tunnel or local-only port; do not expose the admin dashboard publicly.
 
 ## Railway integration
