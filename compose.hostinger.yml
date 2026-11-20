@@ -1,0 +1,73 @@
+name: freellmapi-agent-gateway
+
+services:
+  freellmapi:
+    image: ghcr.io/tashfeenahmed/freellmapi:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      ENCRYPTION_KEY: ${FREELLMAPI_ENCRYPTION_KEY}
+      FREEAPI_CONFIG_JSON: ${FREEAPI_CONFIG_JSON}
+    volumes:
+      - freellmapi-data:/app/server/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/ping').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  role-gateway:
+    image: thulanekekana/freellmapi-agent-gateway:latest
+    restart: unless-stopped
+    depends_on:
+      freellmapi:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      FREELLMAPI_ORIGIN: http://freellmapi:3001
+      FREELLMAPI_UNIFIED_KEY: ${FREELLMAPI_UNIFIED_KEY}
+      WORKER_API_KEY: ${WORKER_API_KEY}
+      PLANNER_API_KEY: ${PLANNER_API_KEY}
+      MANAGER_API_KEY: ${MANAGER_API_KEY}
+      UI_API_KEY: ${UI_API_KEY}
+      WORKER_MODEL: ${WORKER_MODEL:-auto}
+      PLANNER_MODEL: ${PLANNER_MODEL:-auto}
+      MANAGER_MODEL: ${MANAGER_MODEL:-auto}
+      UI_MODEL: ${UI_MODEL:-auto}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      REQUEST_TIMEOUT_MS: ${REQUEST_TIMEOUT_MS:-300000}
+    networks:
+      - internal
+      - default
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.freellmapi-role-gateway.rule: Host(`${GATEWAY_HOSTNAME}`)
+      traefik.http.routers.freellmapi-role-gateway.entrypoints: websecure
+      traefik.http.routers.freellmapi-role-gateway.tls: "true"
+      traefik.http.services.freellmapi-role-gateway.loadbalancer.server.port: "8080"
+      com.centurylinklabs.watchtower.enable: "true"
+      com.centurylinklabs.watchtower.scope: freellmapi-agent-gateway
+
+  watchtower:
+    image: nickfedor/watchtower:1.22.3
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_SCOPE: freellmapi-agent-gateway
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      com.centurylinklabs.watchtower.scope: freellmapi-agent-gateway
+
+networks:
+  internal:
+    internal: true
+
+volumes:
+  freellmapi-data:
